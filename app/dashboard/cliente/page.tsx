@@ -27,6 +27,17 @@ export default function ClienteDashboard() {
     if (userData) {
       setUser(JSON.parse(userData));
     }
+
+    // Escuchar eventos de cambio de vista
+    const handleChangeView = (e: CustomEvent) => {
+      setCurrentView(e.detail as ViewType);
+    };
+
+    window.addEventListener('changeView', handleChangeView as EventListener);
+    
+    return () => {
+      window.removeEventListener('changeView', handleChangeView as EventListener);
+    };
   }, []);
 
   const handleLogout = () => {
@@ -37,168 +48,187 @@ export default function ClienteDashboard() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#a8dcd9] to-[#8bc9c5] flex items-center justify-center">
-        <div className="text-white text-2xl font-bold">Cargando...</div>
+      <div className="min-h-screen bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="flex flex-col items-center gap-4"
+        >
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+            className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full"
+          />
+          <p className="text-primary text-xl font-semibold">Cargando...</p>
+        </motion.div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#e8f5f4] to-[#d4ecea]">
+    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-primary/10">
       {/* Header */}
-      <div className="bg-gradient-to-r from-[#a8dcd9] to-[#8bc9c5] shadow-lg">
-        <div className="container mx-auto px-6 py-6">
+      <header className="bg-gradient-to-r from-primary to-primary/80 shadow-xl border-b border-primary/20">
+        <div className="container mx-auto px-6 py-5">
           <div className="flex justify-between items-center">
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               className="flex items-center gap-4"
             >
-              <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center">
-                <User className="w-8 h-8 text-[#a8dcd9]" />
+              <div className="w-12 h-12 bg-white/10 backdrop-blur-sm rounded-full flex items-center justify-center ring-2 ring-white/30">
+                <User className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-white">
-                  Mi Panel de Paciente
+                <h1 className="text-2xl font-bold text-white">
+                  Panel de Paciente
                 </h1>
-                <p className="text-white/90 text-lg">
-                  Bienvenido, {user.firstName} {user.lastName}
+                <p className="text-white/90 text-sm">
+                  {user.firstName} {user.lastName}
                 </p>
               </div>
             </motion.div>
             <Button
               onClick={handleLogout}
-              className="bg-white text-[#a8dcd9] hover:bg-gray-100 font-semibold"
+              variant="secondary"
+              className="font-semibold shadow-lg hover:shadow-xl transition-all"
             >
               Cerrar Sesión
             </Button>
           </div>
         </div>
-      </div>
+      </header>
 
-      <div className="container mx-auto px-6 py-8">
+      <div className="container mx-auto px-6 py-6">
         {/* Navigation Tabs */}
-        <motion.div
+        <motion.nav
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-2xl shadow-lg p-4 mb-8"
+          className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-lg p-2 mb-6 border border-primary/10"
         >
-          <div className="flex gap-3 flex-wrap">
+          <div className="flex gap-2 flex-wrap">
             <Button
               onClick={() => setCurrentView("overview")}
-              className={`flex items-center gap-2 font-semibold transition-all ${
+              variant={currentView === "overview" ? "default" : "ghost"}
+              className={`flex items-center gap-2 font-medium transition-all ${
                 currentView === "overview"
-                  ? "bg-[#a8dcd9] text-white hover:bg-[#8bc9c5]"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  ? "shadow-lg shadow-primary/20"
+                  : ""
               }`}
             >
-              <User className="w-5 h-5" />
+              <User className="w-4 h-4" />
               Inicio
             </Button>
             <Button
               onClick={() => setCurrentView("book")}
-              className={`flex items-center gap-2 font-semibold transition-all ${
+              variant={currentView === "book" ? "default" : "ghost"}
+              className={`flex items-center gap-2 font-medium transition-all ${
                 currentView === "book"
-                  ? "bg-[#a8dcd9] text-white hover:bg-[#8bc9c5]"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  ? "shadow-lg shadow-primary/20"
+                  : ""
               }`}
             >
-              <Calendar className="w-5 h-5" />
+              <Calendar className="w-4 h-4" />
               Reservar Cita
             </Button>
             <Button
               onClick={() => setCurrentView("manage")}
-              className={`flex items-center gap-2 font-semibold transition-all ${
+              variant={currentView === "manage" ? "default" : "ghost"}
+              className={`flex items-center gap-2 font-medium transition-all ${
                 currentView === "manage"
-                  ? "bg-[#a8dcd9] text-white hover:bg-[#8bc9c5]"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  ? "shadow-lg shadow-primary/20"
+                  : ""
               }`}
             >
-              <ClipboardList className="w-5 h-5" />
-              Gestionar Citas
+              <ClipboardList className="w-4 h-4" />
+              Mis Citas
             </Button>
             <Button
               onClick={() => setCurrentView("history")}
-              className={`flex items-center gap-2 font-semibold transition-all ${
+              variant={currentView === "history" ? "default" : "ghost"}
+              className={`flex items-center gap-2 font-medium transition-all ${
                 currentView === "history"
-                  ? "bg-[#a8dcd9] text-white hover:bg-[#8bc9c5]"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  ? "shadow-lg shadow-primary/20"
+                  : ""
               }`}
             >
-              <FileText className="w-5 h-5" />
-              Mi Historial
+              <FileText className="w-4 h-4" />
+              Historial
             </Button>
           </div>
-        </motion.div>
+        </motion.nav>
 
         {/* Content Area */}
         {currentView === "overview" && (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="space-y-8"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-6"
           >
-            <div className="bg-white rounded-2xl shadow-lg p-8">
-              <h2 className="text-3xl font-bold text-gray-800 mb-6">Accesos Rápidos</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <motion.div
-                  whileHover={{ scale: 1.05 }}
+            <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-lg p-6 border border-primary/10">
+              <h2 className="text-2xl font-bold text-primary mb-5">Accesos Rápidos</h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <motion.button
+                  whileHover={{ scale: 1.02, y: -4 }}
+                  whileTap={{ scale: 0.98 }}
                   onClick={() => setCurrentView("manage")}
-                  className="bg-gradient-to-br from-[#a8dcd9]/20 to-[#8bc9c5]/20 p-8 rounded-xl border-2 border-[#a8dcd9]/30 cursor-pointer hover:shadow-xl transition-all"
+                  className="group bg-gradient-to-br from-primary/10 to-primary/5 p-6 rounded-xl border border-primary/20 hover:border-primary/40 cursor-pointer hover:shadow-xl transition-all text-left"
                 >
-                  <ClipboardList className="w-12 h-12 text-[#a8dcd9] mb-4" />
-                  <h3 className="text-xl font-semibold text-gray-800 mb-2">
+                  <ClipboardList className="w-10 h-10 text-primary mb-3 group-hover:scale-110 transition-transform" />
+                  <h3 className="text-lg font-semibold text-foreground mb-1">
                     Mis Citas
                   </h3>
-                  <p className="text-gray-600">
-                    Visualiza y gestiona tus citas programadas
+                  <p className="text-muted-foreground text-sm">
+                    Gestiona tus citas programadas
                   </p>
-                </motion.div>
+                </motion.button>
 
-                <motion.div
-                  whileHover={{ scale: 1.05 }}
+                <motion.button
+                  whileHover={{ scale: 1.02, y: -4 }}
+                  whileTap={{ scale: 0.98 }}
                   onClick={() => setCurrentView("book")}
-                  className="bg-gradient-to-br from-[#a8dcd9]/20 to-[#8bc9c5]/20 p-8 rounded-xl border-2 border-[#a8dcd9]/30 cursor-pointer hover:shadow-xl transition-all"
+                  className="group bg-gradient-to-br from-primary/10 to-primary/5 p-6 rounded-xl border border-primary/20 hover:border-primary/40 cursor-pointer hover:shadow-xl transition-all text-left"
                 >
-                  <Calendar className="w-12 h-12 text-[#a8dcd9] mb-4" />
-                  <h3 className="text-xl font-semibold text-gray-800 mb-2">
+                  <Calendar className="w-10 h-10 text-primary mb-3 group-hover:scale-110 transition-transform" />
+                  <h3 className="text-lg font-semibold text-foreground mb-1">
                     Reservar Cita
                   </h3>
-                  <p className="text-gray-600">
-                    Solicita una nueva cita con nuestros profesionales
+                  <p className="text-muted-foreground text-sm">
+                    Solicita una nueva cita
                   </p>
-                </motion.div>
+                </motion.button>
 
-                <motion.div
-                  whileHover={{ scale: 1.05 }}
+                <motion.button
+                  whileHover={{ scale: 1.02, y: -4 }}
+                  whileTap={{ scale: 0.98 }}
                   onClick={() => setCurrentView("history")}
-                  className="bg-gradient-to-br from-[#a8dcd9]/20 to-[#8bc9c5]/20 p-8 rounded-xl border-2 border-[#a8dcd9]/30 cursor-pointer hover:shadow-xl transition-all"
+                  className="group bg-gradient-to-br from-primary/10 to-primary/5 p-6 rounded-xl border border-primary/20 hover:border-primary/40 cursor-pointer hover:shadow-xl transition-all text-left"
                 >
-                  <FileText className="w-12 h-12 text-[#a8dcd9] mb-4" />
-                  <h3 className="text-xl font-semibold text-gray-800 mb-2">
-                    Mi Historial
+                  <FileText className="w-10 h-10 text-primary mb-3 group-hover:scale-110 transition-transform" />
+                  <h3 className="text-lg font-semibold text-foreground mb-1">
+                    Historial
                   </h3>
-                  <p className="text-gray-600">
-                    Consulta tu historial de atenciones y tratamientos
+                  <p className="text-muted-foreground text-sm">
+                    Consulta tus atenciones
                   </p>
-                </motion.div>
+                </motion.button>
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-lg p-8">
-              <h2 className="text-2xl font-bold text-gray-800 mb-6">Información Personal</h2>
-              <div className="grid md:grid-cols-3 gap-6">
-                <div className="bg-[#a8dcd9]/10 rounded-xl p-6 border-2 border-[#a8dcd9]/30">
-                  <p className="text-gray-600 mb-1">Usuario</p>
-                  <p className="font-bold text-xl text-gray-800">{user.username}</p>
+            <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-lg p-6 border border-primary/10">
+              <h2 className="text-xl font-bold text-primary mb-4">Información Personal</h2>
+              <div className="grid md:grid-cols-3 gap-4">
+                <div className="bg-primary/5 rounded-xl p-5 border border-primary/10">
+                  <p className="text-muted-foreground text-sm mb-1">Usuario</p>
+                  <p className="font-semibold text-lg text-foreground">{user.username}</p>
                 </div>
-                <div className="bg-[#a8dcd9]/10 rounded-xl p-6 border-2 border-[#a8dcd9]/30">
-                  <p className="text-gray-600 mb-1">Email</p>
-                  <p className="font-bold text-xl text-gray-800">{user.email}</p>
+                <div className="bg-primary/5 rounded-xl p-5 border border-primary/10">
+                  <p className="text-muted-foreground text-sm mb-1">Email</p>
+                  <p className="font-semibold text-lg text-foreground truncate">{user.email}</p>
                 </div>
-                <div className="bg-[#a8dcd9]/10 rounded-xl p-6 border-2 border-[#a8dcd9]/30">
-                  <p className="text-gray-600 mb-1">Rol</p>
-                  <p className="font-bold text-xl text-gray-800">{user.roles.join(", ")}</p>
+                <div className="bg-primary/5 rounded-xl p-5 border border-primary/10">
+                  <p className="text-muted-foreground text-sm mb-1">Rol</p>
+                  <p className="font-semibold text-lg text-foreground">{user.roles.join(", ")}</p>
                 </div>
               </div>
             </div>

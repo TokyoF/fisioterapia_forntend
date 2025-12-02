@@ -5,9 +5,38 @@ import { useState } from "react";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { LoginModal } from "@/components/auth/LoginModal";
+import { FanGallery } from "@/components/gallery/FanGallery";
 
 export default function Home() {
   const [loginOpen, setLoginOpen] = useState(false);
+
+  // Array de imágenes para la galería - por ahora usa la misma imagen
+  const galleryImages = [
+    {
+      src: "/hero2.jpg",
+      alt: "Instalaciones de fisioterapia",
+      title: "Nuestras Instalaciones",
+      description: "Espacios modernos y equipados para tu comodidad",
+    },
+    {
+      src: "/EjerciciosPelota.jpg",
+      alt: "Equipamiento de última generación",
+      title: "Tecnología Avanzada",
+      description: "Máquinas de última generación para tu tratamiento",
+    },
+    {
+      src: "/EjerciciosMaquina.jpg",
+      alt: "Sala de rehabilitación",
+      title: "Sala de Rehabilitación",
+      description: "Área especializada para tu recuperación",
+    },
+    {
+      src: "/EjerciciosMaquina2.jpg",
+      alt: "Área de recepción",
+      title: "Recepción",
+      description: "Te recibimos con calidez y profesionalismo",
+    },
+  ];
 
   return (
     <div className="min-h-screen">
@@ -17,48 +46,48 @@ export default function Home() {
             className="absolute top-10 left-10 w-32 h-32 border-2 border-white rounded-full"
             animate={{
               y: [0, -20, 0],
-              rotate: [0, 180, 360]
+              rotate: [0, 180, 360],
             }}
             transition={{
               duration: 8,
               repeat: Infinity,
-              ease: "easeInOut"
+              ease: "easeInOut",
             }}
           />
           <motion.div
             className="absolute top-40 right-20 w-20 h-20 border-2 border-white"
             animate={{
               y: [0, 20, 0],
-              rotate: [0, 90, 0]
+              rotate: [0, 90, 0],
             }}
             transition={{
               duration: 6,
               repeat: Infinity,
-              ease: "easeInOut"
+              ease: "easeInOut",
             }}
           />
           <motion.div
             className="absolute bottom-20 left-1/4 w-16 h-16 border-2 border-white rotate-45"
             animate={{
               y: [0, -15, 0],
-              x: [0, 15, 0]
+              x: [0, 15, 0],
             }}
             transition={{
               duration: 7,
               repeat: Infinity,
-              ease: "easeInOut"
+              ease: "easeInOut",
             }}
           />
           <motion.div
             className="absolute top-1/2 right-1/3 w-24 h-24 border-2 border-white rounded-full"
             animate={{
               scale: [1, 1.2, 1],
-              opacity: [0.1, 0.2, 0.1]
+              opacity: [0.1, 0.2, 0.1],
             }}
             transition={{
               duration: 5,
               repeat: Infinity,
-              ease: "easeInOut"
+              ease: "easeInOut",
             }}
           />
         </div>
@@ -79,7 +108,9 @@ export default function Home() {
               >
                 Bienvenido a
                 <br />
-                <span className="block mt-2">Fisioterapia Santa María de Asís</span>
+                <span className="block mt-2">
+                  Fisioterapia Santa María de Asís
+                </span>
               </motion.h1>
               <motion.p
                 className="text-lg lg:text-xl mb-8 text-white/90 leading-relaxed"
@@ -87,8 +118,9 @@ export default function Home() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.4 }}
               >
-                Brindamos atención profesional y personalizada para tu recuperación y bienestar.
-                Nuestro equipo de especialistas está comprometido con tu salud.
+                Brindamos atención profesional y personalizada para tu
+                recuperación y bienestar. Nuestro equipo de especialistas está
+                comprometido con tu salud.
               </motion.p>
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -114,20 +146,7 @@ export default function Home() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.8, delay: 0.3 }}
             >
-              <motion.div
-                className="relative rounded-2xl overflow-hidden shadow-2xl"
-                whileHover={{ scale: 1.02 }}
-                transition={{ duration: 0.3 }}
-              >
-                <Image
-                  src="/hero2.jpg"
-                  alt="Fisioterapia profesional"
-                  width={600}
-                  height={700}
-                  className="object-cover w-full h-auto"
-                  priority
-                />
-              </motion.div>
+              <FanGallery images={galleryImages} />
             </motion.div>
           </div>
         </div>

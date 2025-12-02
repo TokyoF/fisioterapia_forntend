@@ -1,63 +1,109 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { Calendar, Clock, User, CheckCircle2, ArrowRight } from "lucide-react";
+import { api } from "@/lib/api";
 
 interface Therapist {
-  id: string;
-  name: string;
-  specialty: string;
-  image: string;
+  id: number;
+  codigo: string;
+  especialidad: string;
+  user: {
+    firstName: string;
+    lastName: string;
+  };
 }
 
-interface TimeSlot {
-  id: string;
-  time: string;
-  available: boolean;
+interface Horario {
+  id: number;
+  diaSemana: string;
+  horaInicio: string;
+  horaFin: string;
+  disponible: boolean;
 }
-
-const THERAPISTS: Therapist[] = [
-  { id: "1", name: "Dr. Carlos Méndez", specialty: "Rehabilitación Deportiva", image: "/therapist1.jpg" },
-  { id: "2", name: "Dra. Ana Torres", specialty: "Terapia Manual", image: "/therapist2.jpg" },
-  { id: "3", name: "Dr. Luis Ramírez", specialty: "Neurorehabilitación", image: "/therapist3.jpg" },
-];
-
-const AVAILABLE_DATES = [
-  { date: "2025-01-15", day: "Lunes", slots: ["08:00", "09:00", "10:00", "14:00", "15:00"] },
-  { date: "2025-01-16", day: "Martes", slots: ["08:00", "09:00", "11:00", "14:00", "16:00"] },
-  { date: "2025-01-17", day: "Miércoles", slots: ["08:00", "10:00", "11:00", "15:00", "16:00"] },
-  { date: "2025-01-18", day: "Jueves", slots: ["09:00", "10:00", "11:00", "14:00", "15:00"] },
-  { date: "2025-01-19", day: "Viernes", slots: ["08:00", "09:00", "10:00", "14:00", "15:00"] },
-];
 
 export function AppointmentBooking() {
   const [step, setStep] = useState(1);
-  const [selectedTherapist, setSelectedTherapist] = useState<string | null>(null);
+  const [therapists, setTherapists] = useState<Therapist[]>([]);
+  const [selectedTherapist, setSelectedTherapist] = useState<number | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [appointmentReason, setAppointmentReason] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleBookAppointment = () => {
-    const therapist = THERAPISTS.find(t => t.id === selectedTherapist);
-    const dateInfo = AVAILABLE_DATES.find(d => d.date === selectedDate);
+  useEffect(() => {
+    loadTherapists();
+  }, []);
 
-    console.log("Reservando cita:", {
-      therapist: therapist?.name,
-      date: selectedDate,
-      time: selectedTime,
-      reason: appointmentReason
-    });
+  const loadTherapists = async () => {
+    try {
+      setLoading(true);
+      const data = await api.getFisioterapeutas();
+      setTherapists(data);
+    } catch (err) {
+      setError("Error al cargar fisioterapeutas");
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    alert(`¡Cita reservada exitosamente!\n\nFisioterapeuta: ${therapist?.name}\nFecha: ${dateInfo?.day}, ${selectedDate}\nHora: ${selectedTime}\nMotivo: ${appointmentReason}`);
+  // Generate next 7 days for date selection
+  const getAvailableDates = () => {
+    const dates = [];
+    const today = new Date();
+    for (let i = 1; i <= 7; i++) {
+      const date = new Date(today);
+      date.setDate(today.getDate() + i);
+      dates.push({
+        date: date.toISOString().split('T')[0],
+        day: date.toLocaleDateString('es-ES', { weekday: 'long' }),
+      });
+    }
+    return dates;
+  };
 
-    // Reset
-    setStep(1);
-    setSelectedTherapist(null);
-    setSelectedDate(null);
-    setSelectedTime(null);
-    setAppointmentReason("");
+  // Generate time slots (8:00 AM to 6:00 PM, every hour)
+  const getTimeSlots = () => {
+    const slots = [];
+    for (let hour = 8; hour <= 18; hour++) {
+      slots.push(`${hour.toString().padStart(2, '0')}:00`);
+    }
+    return slots;
+  };
+
+  const handleBookAppointment = async () => {
+    if (!selectedTherapist || !selectedDate || !selectedTime) return;
+
+    try {
+      setLoading(true);
+      setError("");
+
+      await api.crearCita({
+        fisioterapeutaId: selectedTherapist,
+        fecha: selectedDate,
+        hora: selectedTime,
+        motivo: appointmentReason || undefined,
+      });
+
+      const therapist = therapists.find(t => t.id === selectedTherapist);
+      alert(`¡Cita reservada exitosamente!\n\nFisioterapeuta: Dr(a). ${therapist?.user.firstName} ${therapist?.user.lastName}\nFecha: ${selectedDate}\nHora: ${selectedTime}`);
+
+      // Reset
+      setStep(1);
+      setSelectedTherapist(null);
+      setSelectedDate(null);
+      setSelectedTime(null);
+      setAppointmentReason("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al reservar la cita");
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -65,7 +111,7 @@ export function AppointmentBooking() {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-gradient-to-br from-[#a8dcd9] to-[#8bc9c5] rounded-2xl p-8 shadow-xl"
+        className="bg-gradient-to-br from-primary to-primary/80 rounded-2xl p-8 shadow-xl"
       >
         <div className="flex items-center gap-3 mb-6">
           <Calendar className="w-8 h-8 text-white" />
@@ -79,7 +125,7 @@ export function AppointmentBooking() {
           {[1, 2, 3].map((num) => (
             <div key={num} className="flex items-center">
               <div className={`flex items-center justify-center w-10 h-10 rounded-full font-bold transition-all ${
-                step >= num ? "bg-white text-[#a8dcd9]" : "bg-white/30 text-white/60"
+                step >= num ? "bg-white text-primary" : "bg-white/30 text-white/60"
               }`}>
                 {num}
               </div>
@@ -98,48 +144,59 @@ export function AppointmentBooking() {
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
-          className="bg-white rounded-2xl p-8 shadow-lg border-2 border-[#a8dcd9]/30"
+          className="bg-white rounded-2xl p-8 shadow-lg border-2 border-primary/30"
         >
           <h3 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-            <User className="w-6 h-6 text-[#a8dcd9]" />
+            <User className="w-6 h-6 text-primary" />
             Paso 1: Selecciona tu Fisioterapeuta
           </h3>
 
-          <div className="grid md:grid-cols-3 gap-6">
-            {THERAPISTS.map(therapist => (
-              <motion.div
-                key={therapist.id}
-                whileHover={{ scale: 1.03 }}
-                onClick={() => setSelectedTherapist(therapist.id)}
-                className={`relative cursor-pointer rounded-2xl p-6 transition-all ${
-                  selectedTherapist === therapist.id
-                    ? "bg-[#a8dcd9]/20 border-3 border-[#a8dcd9] shadow-xl"
-                    : "bg-gray-50 border-2 border-gray-200 hover:border-[#a8dcd9]/50"
-                }`}
-              >
-                {selectedTherapist === therapist.id && (
-                  <div className="absolute top-4 right-4">
-                    <CheckCircle2 className="w-6 h-6 text-[#a8dcd9]" />
+          {loading ? (
+            <div className="text-center py-12">
+              <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+              <p className="text-gray-500">Cargando fisioterapeutas...</p>
+            </div>
+          ) : error ? (
+            <div className="text-center py-12">
+              <p className="text-red-500">{error}</p>
+            </div>
+          ) : (
+            <div className="grid md:grid-cols-3 gap-6">
+              {therapists.map(therapist => (
+                <motion.div
+                  key={therapist.id}
+                  whileHover={{ scale: 1.03 }}
+                  onClick={() => setSelectedTherapist(therapist.id)}
+                  className={`relative cursor-pointer rounded-2xl p-6 transition-all ${
+                    selectedTherapist === therapist.id
+                      ? "bg-primary/20 border-3 border-primary shadow-xl"
+                      : "bg-gray-50 border-2 border-gray-200 hover:border-primary/50"
+                  }`}
+                >
+                  {selectedTherapist === therapist.id && (
+                    <div className="absolute top-4 right-4">
+                      <CheckCircle2 className="w-6 h-6 text-primary" />
+                    </div>
+                  )}
+                  <div className="w-20 h-20 bg-gradient-to-br from-primary to-primary/80 rounded-full mx-auto mb-4 flex items-center justify-center">
+                    <User className="w-10 h-10 text-white" />
                   </div>
-                )}
-                <div className="w-20 h-20 bg-gradient-to-br from-[#a8dcd9] to-[#8bc9c5] rounded-full mx-auto mb-4 flex items-center justify-center">
-                  <User className="w-10 h-10 text-white" />
-                </div>
-                <h4 className="font-bold text-lg text-gray-800 text-center mb-2">
-                  {therapist.name}
-                </h4>
-                <p className="text-sm text-gray-600 text-center">
-                  {therapist.specialty}
-                </p>
-              </motion.div>
-            ))}
-          </div>
+                  <h4 className="font-bold text-lg text-gray-800 text-center mb-2">
+                    Dr(a). {therapist.user.firstName} {therapist.user.lastName}
+                  </h4>
+                  <p className="text-sm text-gray-600 text-center">
+                    {therapist.especialidad}
+                  </p>
+                </motion.div>
+              ))}
+            </div>
+          )}
 
           <div className="flex justify-end mt-8">
             <Button
               onClick={() => setStep(2)}
               disabled={!selectedTherapist}
-              className="bg-[#a8dcd9] hover:bg-[#8bc9c5] text-white font-semibold py-6 px-8 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="bg-primary hover:bg-primary/90 text-white font-semibold py-6 px-8 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Continuar
               <ArrowRight className="w-5 h-5 ml-2" />
@@ -153,10 +210,10 @@ export function AppointmentBooking() {
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
-          className="bg-white rounded-2xl p-8 shadow-lg border-2 border-[#a8dcd9]/30"
+          className="bg-white rounded-2xl p-8 shadow-lg border-2 border-primary/30"
         >
           <h3 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-            <Calendar className="w-6 h-6 text-[#a8dcd9]" />
+            <Calendar className="w-6 h-6 text-primary" />
             Paso 2: Selecciona Fecha y Hora
           </h3>
 
@@ -164,7 +221,7 @@ export function AppointmentBooking() {
             <div>
               <h4 className="font-semibold text-gray-700 mb-4 text-lg">Selecciona una fecha</h4>
               <div className="space-y-3">
-                {AVAILABLE_DATES.map(dateInfo => (
+                {getAvailableDates().map(dateInfo => (
                   <motion.div
                     key={dateInfo.date}
                     whileHover={{ scale: 1.02 }}
@@ -174,17 +231,17 @@ export function AppointmentBooking() {
                     }}
                     className={`cursor-pointer p-4 rounded-xl transition-all ${
                       selectedDate === dateInfo.date
-                        ? "bg-[#a8dcd9]/20 border-2 border-[#a8dcd9]"
-                        : "bg-gray-50 border-2 border-gray-200 hover:border-[#a8dcd9]/50"
+                        ? "bg-primary/20 border-2 border-primary"
+                        : "bg-gray-50 border-2 border-gray-200 hover:border-primary/50"
                     }`}
                   >
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="font-bold text-gray-800">{dateInfo.day}</p>
+                        <p className="font-bold text-gray-800 capitalize">{dateInfo.day}</p>
                         <p className="text-sm text-gray-600">{dateInfo.date}</p>
                       </div>
                       {selectedDate === dateInfo.date && (
-                        <CheckCircle2 className="w-5 h-5 text-[#a8dcd9]" />
+                        <CheckCircle2 className="w-5 h-5 text-primary" />
                       )}
                     </div>
                   </motion.div>
@@ -194,19 +251,19 @@ export function AppointmentBooking() {
 
             <div>
               <h4 className="font-semibold text-gray-700 mb-4 text-lg">
-                Horarios disponibles {selectedDate && `- ${AVAILABLE_DATES.find(d => d.date === selectedDate)?.day}`}
+                Horarios disponibles {selectedDate && `- ${getAvailableDates().find(d => d.date === selectedDate)?.day}`}
               </h4>
               {selectedDate ? (
                 <div className="grid grid-cols-2 gap-3">
-                  {AVAILABLE_DATES.find(d => d.date === selectedDate)?.slots.map(time => (
+                  {getTimeSlots().map(time => (
                     <motion.div
                       key={time}
                       whileHover={{ scale: 1.05 }}
                       onClick={() => setSelectedTime(time)}
                       className={`cursor-pointer p-4 rounded-xl transition-all text-center ${
                         selectedTime === time
-                          ? "bg-[#a8dcd9] text-white border-2 border-[#a8dcd9]"
-                          : "bg-gray-50 border-2 border-gray-200 hover:border-[#a8dcd9]/50 text-gray-700"
+                          ? "bg-primary text-white border-2 border-primary"
+                          : "bg-gray-50 border-2 border-gray-200 hover:border-primary/50 text-gray-700"
                       }`}
                     >
                       <Clock className="w-5 h-5 mx-auto mb-1" />
@@ -233,7 +290,7 @@ export function AppointmentBooking() {
             <Button
               onClick={() => setStep(3)}
               disabled={!selectedDate || !selectedTime}
-              className="bg-[#a8dcd9] hover:bg-[#8bc9c5] text-white font-semibold py-6 px-8 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="bg-primary hover:bg-primary/90 text-white font-semibold py-6 px-8 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Continuar
               <ArrowRight className="w-5 h-5 ml-2" />
@@ -247,30 +304,30 @@ export function AppointmentBooking() {
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
-          className="bg-white rounded-2xl p-8 shadow-lg border-2 border-[#a8dcd9]/30"
+          className="bg-white rounded-2xl p-8 shadow-lg border-2 border-primary/30"
         >
           <h3 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-            <CheckCircle2 className="w-6 h-6 text-[#a8dcd9]" />
+            <CheckCircle2 className="w-6 h-6 text-primary" />
             Paso 3: Confirmar y Detalles
           </h3>
 
-          <div className="bg-[#a8dcd9]/10 rounded-xl p-6 mb-6">
+          <div className="bg-primary/10 rounded-xl p-6 mb-6">
             <h4 className="font-bold text-gray-800 mb-4 text-lg">Resumen de tu cita</h4>
             <div className="space-y-3">
               <div className="flex items-center gap-3">
-                <User className="w-5 h-5 text-[#a8dcd9]" />
+                <User className="w-5 h-5 text-primary" />
                 <span className="font-semibold">
-                  {THERAPISTS.find(t => t.id === selectedTherapist)?.name}
+                  Dr(a). {therapists.find(t => t.id === selectedTherapist)?.user.firstName} {therapists.find(t => t.id === selectedTherapist)?.user.lastName}
                 </span>
               </div>
               <div className="flex items-center gap-3">
-                <Calendar className="w-5 h-5 text-[#a8dcd9]" />
-                <span className="font-semibold">
-                  {AVAILABLE_DATES.find(d => d.date === selectedDate)?.day}, {selectedDate}
+                <Calendar className="w-5 h-5 text-primary" />
+                <span className="font-semibold capitalize">
+                  {getAvailableDates().find(d => d.date === selectedDate)?.day}, {selectedDate}
                 </span>
               </div>
               <div className="flex items-center gap-3">
-                <Clock className="w-5 h-5 text-[#a8dcd9]" />
+                <Clock className="w-5 h-5 text-primary" />
                 <span className="font-semibold">{selectedTime}</span>
               </div>
             </div>
@@ -284,7 +341,7 @@ export function AppointmentBooking() {
               value={appointmentReason}
               onChange={(e) => setAppointmentReason(e.target.value)}
               placeholder="Describe brevemente el motivo de tu consulta..."
-              className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-[#a8dcd9] focus:outline-none transition-colors min-h-[120px]"
+              className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-primary focus:outline-none transition-colors min-h-[120px]"
             />
           </div>
 
@@ -298,9 +355,10 @@ export function AppointmentBooking() {
             </Button>
             <Button
               onClick={handleBookAppointment}
-              className="bg-gradient-to-r from-[#a8dcd9] to-[#8bc9c5] hover:from-[#8bc9c5] hover:to-[#6fb5b1] text-white font-semibold py-6 px-8 shadow-lg"
+              disabled={loading}
+              className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-white font-semibold py-6 px-8 shadow-lg disabled:opacity-50"
             >
-              Confirmar Reserva
+              {loading ? "Reservando..." : "Confirmar Reserva"}
               <CheckCircle2 className="w-5 h-5 ml-2" />
             </Button>
           </div>
