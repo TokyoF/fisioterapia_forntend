@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar, FileText, ClipboardList, User, Stethoscope } from "lucide-react";
 import { ScheduleManager } from "@/components/schedule/ScheduleManager";
 import { ClinicalHistory } from "@/components/clinical/ClinicalHistory";
-import { AppointmentHistory } from "@/components/appointments/AppointmentHistory";
+import { FisioterapeutaAppointments } from "@/components/appointments/FisioterapeutaAppointments";
 
 interface UserData {
   username: string;
@@ -247,7 +247,7 @@ export default function FisioterapeutaDashboard() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
           >
-            <AppointmentHistory />
+            <FisioterapeutaAppointments />
           </motion.div>
         )}
       </div>

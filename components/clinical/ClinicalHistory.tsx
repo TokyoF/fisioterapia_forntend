@@ -3,8 +3,16 @@
 import { useState, useEffect } from "react";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
-import { FileText, User, Calendar, Activity, AlertCircle, Plus, Save, Edit2, Search } from "lucide-react";
+import { FileText, User, Calendar, Activity, AlertCircle, Plus, Save, Edit2, Search, CheckCircle2, X, Stethoscope, ClipboardList, MessageSquare } from "lucide-react";
 import { api } from "@/lib/api";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface MedicalRecord {
   id: number;
@@ -13,9 +21,13 @@ interface MedicalRecord {
   tratamiento: string;
   observaciones: string;
   fisioterapeuta: {
+    id: number;
+    especialidad: string;
     user: {
+      id: number;
       firstName: string;
       lastName: string;
+      email: string;
     };
   };
 }
@@ -57,10 +69,13 @@ export function ClinicalHistory() {
   const [misPacientes, setMisPacientes] = useState<Array<{ id: number; codigo: string; nombre: string }>>([]);
   const [selectedPacienteId, setSelectedPacienteId] = useState<number | null>(null);
   const [isAddingRecord, setIsAddingRecord] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
   const [newRecord, setNewRecord] = useState({
+    fechaRegistro: new Date().toISOString().split('T')[0],
     diagnostico: "",
     tratamiento: "",
-    observaciones: ""
+    observaciones: "",
+    proximaSesion: ""
   });
 
   useEffect(() => {
@@ -139,18 +154,38 @@ export function ClinicalHistory() {
   const handleAddRecord = async () => {
     if (!selectedPacienteId) return;
 
+    // Validación
+    if (!newRecord.diagnostico.trim()) {
+      alert("El diagnóstico es requerido");
+      return;
+    }
+    if (!newRecord.tratamiento.trim()) {
+      alert("El tratamiento es requerido");
+      return;
+    }
+
     try {
       setLoading(true);
       await api.crearRegistroClinico({
         pacienteId: selectedPacienteId,
-        ...newRecord
+        fechaRegistro: newRecord.fechaRegistro,
+        diagnostico: newRecord.diagnostico,
+        tratamiento: newRecord.tratamiento,
+        observaciones: newRecord.observaciones,
+        proximaSesion: newRecord.proximaSesion || undefined
       });
       setIsAddingRecord(false);
-      setNewRecord({ diagnostico: "", tratamiento: "", observaciones: "" });
+      setNewRecord({
+        fechaRegistro: new Date().toISOString().split('T')[0],
+        diagnostico: "",
+        tratamiento: "",
+        observaciones: "",
+        proximaSesion: ""
+      });
       alert("Registro clínico agregado exitosamente");
       await loadRecords();
-    } catch (err) {
-      alert("Error al agregar registro clínico");
+    } catch (err: any) {
+      alert(err?.message || "Error al agregar registro clínico");
       console.error(err);
     } finally {
       setLoading(false);
@@ -167,6 +202,11 @@ export function ClinicalHistory() {
     }
     return age;
   };
+
+  const filteredPacientes = misPacientes.filter(paciente =>
+    paciente.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    paciente.codigo.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <div className="space-y-6">
@@ -198,237 +238,423 @@ export function ClinicalHistory() {
         </div>
       </motion.div>
 
-      {/* Selector de Paciente */}
+      {/* Selector de Paciente con Cards */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.05 }}
         className="bg-white rounded-2xl p-6 shadow-lg border-2 border-primary/30"
       >
-        <div className="flex items-center gap-3 mb-4">
-          <Search className="w-6 h-6 text-primary" />
-          <h3 className="text-xl font-bold text-gray-800">Seleccionar Paciente</h3>
+        <div className="flex items-center gap-3 mb-6">
+          <User className="w-7 h-7 text-primary" />
+          <h3 className="text-2xl font-bold text-gray-800">Mis Pacientes</h3>
         </div>
+
         {loading && !selectedPacienteId ? (
-          <div className="text-center py-8">
-            <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+          <div className="text-center py-12">
+            <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
             <p className="text-gray-500">Cargando pacientes...</p>
           </div>
         ) : misPacientes.length === 0 ? (
-          <p className="text-gray-500 text-center py-8">No hay pacientes asignados</p>
+          <div className="text-center py-12 bg-gray-50 rounded-xl">
+            <User className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+            <p className="text-gray-500 text-lg font-medium">No hay pacientes asignados</p>
+            <p className="text-gray-400 text-sm mt-2">Los pacientes con citas aparecerán aquí</p>
+          </div>
         ) : (
-          <select
-            value={selectedPacienteId || ""}
-            onChange={(e) => setSelectedPacienteId(Number(e.target.value))}
-            className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-primary focus:outline-none transition-colors"
-          >
-            <option value="">Selecciona un paciente...</option>
-            {misPacientes.map(paciente => (
-              <option key={paciente.id} value={paciente.id}>
-                {paciente.codigo} - {paciente.nombre}
-              </option>
-            ))}
-          </select>
+          <>
+            {/* Buscador */}
+            <div className="mb-6">
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Buscar por nombre o código..."
+                  className="w-full pl-12 pr-4 py-3 rounded-xl border-2 border-gray-200 focus:border-primary focus:outline-none transition-colors"
+                />
+              </div>
+              <p className="text-sm text-gray-500 mt-2">
+                {filteredPacientes.length} de {misPacientes.length} paciente(s)
+              </p>
+            </div>
+
+            {/* Grid de Cards de Pacientes */}
+            {filteredPacientes.length === 0 ? (
+              <div className="text-center py-8 bg-gray-50 rounded-xl">
+                <Search className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                <p className="text-gray-500">No se encontraron pacientes</p>
+              </div>
+            ) : (
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredPacientes.map((paciente, index) => (
+                  <motion.button
+                    key={paciente.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.05 }}
+                    whileHover={{ scale: 1.02, y: -4 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => setSelectedPacienteId(paciente.id)}
+                    className={`text-left p-5 rounded-xl border-2 transition-all ${
+                      selectedPacienteId === paciente.id
+                        ? "border-primary bg-primary/10 shadow-lg"
+                        : "border-gray-200 bg-white hover:border-primary/50 hover:shadow-md"
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                        selectedPacienteId === paciente.id
+                          ? "bg-primary text-white"
+                          : "bg-primary/10 text-primary"
+                      }`}>
+                        <User className="w-6 h-6" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-gray-800 text-lg truncate">
+                          {paciente.nombre}
+                        </p>
+                        <p className={`text-sm font-medium ${
+                          selectedPacienteId === paciente.id
+                            ? "text-primary"
+                            : "text-gray-500"
+                        }`}>
+                          {paciente.codigo}
+                        </p>
+                        {selectedPacienteId === paciente.id && (
+                          <motion.div
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            className="flex items-center gap-1 mt-2 text-primary text-xs font-semibold"
+                          >
+                            <CheckCircle2 className="w-4 h-4" />
+                            <span>Seleccionado</span>
+                          </motion.div>
+                        )}
+                      </div>
+                    </div>
+                  </motion.button>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </motion.div>
 
-      {/* Información del Paciente */}
+      {/* Información del Paciente - Rediseñado */}
       {patientInfo && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="bg-white rounded-2xl p-8 shadow-lg border-2 border-primary/30"
+          className="bg-gradient-to-br from-white to-primary/5 rounded-2xl p-6 shadow-lg border-2 border-primary/30"
         >
-          <div className="flex items-center gap-3 mb-6">
-            <User className="w-7 h-7 text-primary" />
-            <h3 className="text-2xl font-bold text-gray-800">Información del Paciente</h3>
+          <div className="flex items-center gap-3 mb-5">
+            <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+              <User className="w-5 h-5 text-primary" />
+            </div>
+            <h3 className="text-xl font-bold text-gray-800">Ficha del Paciente</h3>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="bg-primary/10 rounded-xl p-4">
-              <p className="text-sm text-gray-600 mb-1">Código Paciente</p>
-              <p className="font-bold text-gray-800 text-lg">{patientInfo.codigo}</p>
+          {/* Datos Principales - Grid Compacto */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+            <div className="bg-white rounded-lg p-3 border-2 border-primary/20 hover:border-primary/40 transition-colors">
+              <p className="text-xs text-muted-foreground mb-1">Código</p>
+              <p className="font-bold text-primary text-base">{patientInfo.codigo}</p>
             </div>
-            <div className="bg-primary/10 rounded-xl p-4">
-              <p className="text-sm text-gray-600 mb-1">Nombre Completo</p>
-              <p className="font-bold text-gray-800 text-lg">
-                {patientInfo.user.firstName} {patientInfo.user.lastName}
+            <div className="bg-white rounded-lg p-3 border-2 border-primary/20 hover:border-primary/40 transition-colors">
+              <p className="text-xs text-muted-foreground mb-1">Edad</p>
+              <p className="font-bold text-gray-800 text-base">
+                {calculateAge(patientInfo.fechaNacimiento)} años
               </p>
             </div>
-            <div className="bg-primary/10 rounded-xl p-4">
-              <p className="text-sm text-gray-600 mb-1">Edad / Género</p>
-              <p className="font-bold text-gray-800 text-lg">
-                {calculateAge(patientInfo.fechaNacimiento)} años / {patientInfo.genero}
-              </p>
+            <div className="bg-white rounded-lg p-3 border-2 border-primary/20 hover:border-primary/40 transition-colors">
+              <p className="text-xs text-muted-foreground mb-1">Género</p>
+              <p className="font-bold text-gray-800 text-base">{patientInfo.genero}</p>
             </div>
-            <div className="bg-primary/10 rounded-xl p-4">
-              <p className="text-sm text-gray-600 mb-1">Tipo de Sangre</p>
-              <p className="font-bold text-gray-800 text-lg">{patientInfo.tipoSangre}</p>
+            <div className="bg-white rounded-lg p-3 border-2 border-primary/20 hover:border-primary/40 transition-colors">
+              <p className="text-xs text-muted-foreground mb-1">Tipo Sangre</p>
+              <p className="font-bold text-gray-800 text-base">{patientInfo.tipoSangre}</p>
             </div>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-6 mt-6">
-            <div className="bg-red-50 rounded-xl p-4 border-2 border-red-200">
-              <div className="flex items-center gap-2 mb-3">
-                <AlertCircle className="w-5 h-5 text-red-500" />
-                <p className="font-bold text-red-800">Alergias</p>
+          {/* Nombre Completo */}
+          <div className="bg-primary/10 rounded-lg p-3 border-2 border-primary/30 mb-4">
+            <p className="text-xs text-muted-foreground mb-1">Nombre Completo</p>
+            <p className="font-bold text-gray-800 text-lg">
+              {patientInfo.user.firstName} {patientInfo.user.lastName}
+            </p>
+          </div>
+
+          {/* Información Médica Importante - Grid 2 Columnas */}
+          <div className="grid md:grid-cols-2 gap-3">
+            {/* Alergias */}
+            <div className="bg-destructive/10 rounded-lg p-3 border-2 border-destructive/30">
+              <div className="flex items-center gap-2 mb-2">
+                <AlertCircle className="w-4 h-4 text-destructive" />
+                <p className="font-bold text-sm text-destructive">Alergias</p>
               </div>
-              <p className="text-red-700">
-                {patientInfo.alergias || "No registradas"}
+              <p className="text-sm text-gray-700">
+                {patientInfo.alergias || "Sin alergias registradas"}
               </p>
             </div>
 
-            <div className="bg-blue-50 rounded-xl p-4 border-2 border-blue-200">
-              <div className="flex items-center gap-2 mb-3">
-                <Activity className="w-5 h-5 text-blue-500" />
-                <p className="font-bold text-blue-800">Antecedentes Médicos</p>
+            {/* Antecedentes */}
+            <div className="bg-primary/10 rounded-lg p-3 border-2 border-primary/30">
+              <div className="flex items-center gap-2 mb-2">
+                <Activity className="w-4 h-4 text-primary" />
+                <p className="font-bold text-sm text-primary">Antecedentes</p>
               </div>
-              <p className="text-blue-700">
-                {patientInfo.antecedentes || "No registrados"}
+              <p className="text-sm text-gray-700">
+                {patientInfo.antecedentes || "Sin antecedentes registrados"}
               </p>
             </div>
           </div>
         </motion.div>
       )}
 
-      {/* Formulario para Agregar Registro */}
-      {isAddingRecord && (
-        <motion.div
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: "auto" }}
-          className="bg-white rounded-2xl p-8 shadow-lg border-2 border-primary"
-        >
-          <div className="flex items-center gap-3 mb-6">
-            <Edit2 className="w-7 h-7 text-primary" />
-            <h3 className="text-2xl font-bold text-gray-800">Nuevo Registro Clínico</h3>
-          </div>
+      {/* Modal para Agregar Registro Clínico - Diseño Optimizado */}
+      <Dialog open={isAddingRecord} onOpenChange={setIsAddingRecord}>
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                <Stethoscope className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <DialogTitle className="text-xl font-bold">Nuevo Registro Clínico</DialogTitle>
+                <DialogDescription className="text-sm">
+                  Complete la información médica del paciente
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
 
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Diagnóstico
-              </label>
-              <input
-                type="text"
-                value={newRecord.diagnostico}
-                onChange={(e) => setNewRecord({ ...newRecord, diagnostico: e.target.value })}
-                placeholder="Ingrese el diagnóstico del paciente..."
-                className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-primary focus:outline-none transition-colors"
-              />
+          <div className="space-y-4 py-3">
+            {/* Fila 1: Fechas */}
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="bg-primary/5 rounded-lg p-3 border-2 border-primary/20">
+                <div className="flex items-center gap-2 mb-2">
+                  <Calendar className="w-4 h-4 text-primary" />
+                  <label className="text-sm font-semibold text-gray-800">
+                    Fecha de Registro *
+                  </label>
+                </div>
+                <input
+                  type="date"
+                  value={newRecord.fechaRegistro}
+                  onChange={(e) => setNewRecord({ ...newRecord, fechaRegistro: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg border-2 border-primary/30 focus:border-primary focus:outline-none transition-colors bg-white text-sm"
+                />
+              </div>
+
+              <div className="bg-accent rounded-lg p-3 border-2 border-primary/15">
+                <div className="flex items-center gap-2 mb-2">
+                  <Calendar className="w-4 h-4 text-primary" />
+                  <label className="text-sm font-semibold text-gray-800">
+                    Próxima Sesión
+                  </label>
+                </div>
+                <input
+                  type="date"
+                  value={newRecord.proximaSesion}
+                  onChange={(e) => setNewRecord({ ...newRecord, proximaSesion: e.target.value })}
+                  min={new Date().toISOString().split('T')[0]}
+                  className="w-full px-3 py-2 rounded-lg border-2 border-primary/20 focus:border-primary focus:outline-none transition-colors bg-white text-sm"
+                />
+              </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Tratamiento Aplicado
-              </label>
-              <textarea
-                value={newRecord.tratamiento}
-                onChange={(e) => setNewRecord({ ...newRecord, tratamiento: e.target.value })}
-                placeholder="Describa el tratamiento aplicado..."
-                className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-primary focus:outline-none transition-colors min-h-[100px]"
-              />
+            {/* Fila 2: Diagnóstico y Tratamiento */}
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="bg-primary/10 rounded-lg p-3 border-2 border-primary/30">
+                <div className="flex items-center gap-2 mb-2">
+                  <Stethoscope className="w-4 h-4 text-primary" />
+                  <label className="text-sm font-semibold text-gray-800">
+                    Diagnóstico Médico *
+                  </label>
+                </div>
+                <textarea
+                  value={newRecord.diagnostico}
+                  onChange={(e) => setNewRecord({ ...newRecord, diagnostico: e.target.value })}
+                  placeholder="Descripción del diagnóstico clínico..."
+                  className="w-full px-3 py-2 rounded-lg border-2 border-primary/40 focus:border-primary focus:outline-none transition-colors h-32 bg-white resize-none text-sm"
+                  required
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Ej: Lumbalgia aguda post-esfuerzo
+                </p>
+              </div>
+
+              <div className="bg-primary/8 rounded-lg p-3 border-2 border-primary/25">
+                <div className="flex items-center gap-2 mb-2">
+                  <ClipboardList className="w-4 h-4 text-primary" />
+                  <label className="text-sm font-semibold text-gray-800">
+                    Tratamiento Aplicado *
+                  </label>
+                </div>
+                <textarea
+                  value={newRecord.tratamiento}
+                  onChange={(e) => setNewRecord({ ...newRecord, tratamiento: e.target.value })}
+                  placeholder="Técnicas, ejercicios y procedimientos..."
+                  className="w-full px-3 py-2 rounded-lg border-2 border-primary/35 focus:border-primary focus:outline-none transition-colors h-32 bg-white resize-none text-sm"
+                  required
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Ej: TENS, masaje, ejercicios de estabilización
+                </p>
+              </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Observaciones
-              </label>
+            {/* Fila 3: Observaciones */}
+            <div className="bg-muted rounded-lg p-3 border-2 border-border">
+              <div className="flex items-center gap-2 mb-2">
+                <MessageSquare className="w-4 h-4 text-primary" />
+                <label className="text-sm font-semibold text-gray-800">
+                  Observaciones y Evolución
+                </label>
+              </div>
               <textarea
                 value={newRecord.observaciones}
                 onChange={(e) => setNewRecord({ ...newRecord, observaciones: e.target.value })}
-                placeholder="Observaciones sobre la evolución del paciente..."
-                className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-primary focus:outline-none transition-colors min-h-[100px]"
+                placeholder="Notas sobre progreso, reacciones o comentarios adicionales..."
+                className="w-full px-3 py-2 rounded-lg border-2 border-input focus:border-primary focus:outline-none transition-colors h-24 bg-white resize-none text-sm"
               />
-            </div>
-
-            <div className="flex gap-4 pt-4">
-              <Button
-                onClick={handleAddRecord}
-                disabled={loading}
-                className="flex-1 bg-primary hover:bg-primary/80 text-white font-semibold py-6 disabled:opacity-50"
-              >
-                <Save className="w-5 h-5 mr-2" />
-                Guardar Registro
-              </Button>
-              <Button
-                onClick={() => setIsAddingRecord(false)}
-                variant="outline"
-                className="flex-1 py-6"
-              >
-                Cancelar
-              </Button>
+              <p className="text-xs text-muted-foreground mt-1">
+                Opcional: evolución, adherencia al tratamiento, etc.
+              </p>
             </div>
           </div>
-        </motion.div>
-      )}
 
-      {/* Registros Clínicos */}
+          <DialogFooter className="gap-2 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsAddingRecord(false)}
+              disabled={loading}
+              className="px-5"
+            >
+              <X className="w-4 h-4 mr-2" />
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={handleAddRecord}
+              disabled={loading}
+              className="bg-primary hover:bg-primary/90 px-6"
+            >
+              {loading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                  Guardando...
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4 mr-2" />
+                  Guardar Registro
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Registros Clínicos - Rediseñado */}
       {selectedPacienteId && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="bg-white rounded-2xl p-8 shadow-lg border-2 border-primary/30"
+          className="bg-gradient-to-br from-white to-primary/5 rounded-2xl p-6 shadow-lg border-2 border-primary/30"
         >
-          <div className="flex items-center gap-3 mb-6">
-            <Calendar className="w-7 h-7 text-primary" />
-            <h3 className="text-2xl font-bold text-gray-800">Registros Médicos</h3>
+          <div className="flex items-center gap-3 mb-5">
+            <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+              <FileText className="w-5 h-5 text-primary" />
+            </div>
+            <h3 className="text-xl font-bold text-gray-800">Historial de Registros Médicos</h3>
           </div>
 
           {loading ? (
             <div className="text-center py-12">
-              <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-              <p className="text-gray-500">Cargando registros...</p>
+              <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+              <p className="text-gray-500 text-sm">Cargando registros...</p>
             </div>
           ) : error ? (
-            <div className="text-center py-12">
-              <p className="text-red-500">{error}</p>
+            <div className="text-center py-12 bg-destructive/10 rounded-xl border-2 border-destructive/20">
+              <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-3" />
+              <p className="text-destructive font-medium">{error}</p>
             </div>
           ) : records.length === 0 ? (
-            <p className="text-center text-gray-500 py-12">No hay registros clínicos para este paciente</p>
+            <div className="text-center py-12 bg-muted rounded-xl border-2 border-dashed border-border">
+              <FileText className="w-16 h-16 text-muted-foreground mx-auto mb-3 opacity-50" />
+              <p className="text-muted-foreground font-medium text-base">No hay registros clínicos</p>
+              <p className="text-muted-foreground text-sm mt-2">Los registros aparecerán aquí una vez creados</p>
+            </div>
           ) : (
-            <div className="space-y-6">
+            <div className="space-y-4">
               {records.map((record, index) => (
                 <motion.div
                   key={record.id}
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  className="border-2 border-primary/30 rounded-xl p-6 hover:shadow-lg transition-shadow"
+                  transition={{ delay: index * 0.05 }}
+                  className="bg-white rounded-xl border-2 border-primary/20 hover:border-primary/40 hover:shadow-md transition-all overflow-hidden"
                 >
-                  <div className="flex items-start justify-between mb-4">
-                    <div>
-                      <div className="flex items-center gap-3 mb-2">
-                        <div className="bg-primary text-white px-4 py-1 rounded-lg font-bold text-sm">
+                  {/* Header del Registro */}
+                  <div className="bg-gradient-to-r from-primary/10 to-primary/5 px-4 py-3 border-b-2 border-primary/20">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div className="flex items-center gap-3">
+                        <div className="bg-primary text-white px-3 py-1 rounded-md font-bold text-xs">
                           {new Date(record.fecha).toLocaleDateString('es-ES', {
                             day: '2-digit',
                             month: 'short',
                             year: 'numeric'
                           })}
                         </div>
-                        <span className="text-gray-600">
-                          por Dr(a). {record.fisioterapeuta.user.firstName} {record.fisioterapeuta.user.lastName}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <Stethoscope className="w-4 h-4 text-primary" />
+                          <span className="text-sm text-gray-700 font-medium">
+                            Dr(a). {record.fisioterapeuta.user.firstName} {record.fisioterapeuta.user.lastName}
+                          </span>
+                        </div>
                       </div>
+                      <span className="text-xs text-muted-foreground">
+                        Registro #{record.id}
+                      </span>
                     </div>
                   </div>
 
-                  <div className="space-y-4">
-                    <div className="bg-blue-50 rounded-lg p-4 border-l-4 border-blue-500">
-                      <p className="text-sm font-semibold text-blue-900 mb-1">DIAGNÓSTICO</p>
-                      <p className="text-blue-800">{record.diagnostico}</p>
+                  {/* Contenido del Registro */}
+                  <div className="p-4 space-y-3">
+                    {/* Diagnóstico */}
+                    <div className="bg-primary/10 rounded-lg p-3 border-l-4 border-primary">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Stethoscope className="w-4 h-4 text-primary" />
+                        <p className="text-xs font-bold text-primary uppercase tracking-wide">Diagnóstico</p>
+                      </div>
+                      <p className="text-sm text-gray-700 leading-relaxed">{record.diagnostico}</p>
                     </div>
 
-                    <div className="bg-green-50 rounded-lg p-4 border-l-4 border-green-500">
-                      <p className="text-sm font-semibold text-green-900 mb-1">TRATAMIENTO</p>
-                      <p className="text-green-800">{record.tratamiento}</p>
+                    {/* Tratamiento */}
+                    <div className="bg-primary/8 rounded-lg p-3 border-l-4 border-primary/70">
+                      <div className="flex items-center gap-2 mb-2">
+                        <ClipboardList className="w-4 h-4 text-primary" />
+                        <p className="text-xs font-bold text-primary uppercase tracking-wide">Tratamiento</p>
+                      </div>
+                      <p className="text-sm text-gray-700 leading-relaxed">{record.tratamiento}</p>
                     </div>
 
-                    <div className="bg-amber-50 rounded-lg p-4 border-l-4 border-amber-500">
-                      <p className="text-sm font-semibold text-amber-900 mb-1">OBSERVACIONES</p>
-                      <p className="text-amber-800">{record.observaciones}</p>
-                    </div>
+                    {/* Observaciones */}
+                    {record.observaciones && (
+                      <div className="bg-muted rounded-lg p-3 border-l-4 border-muted-foreground/30">
+                        <div className="flex items-center gap-2 mb-2">
+                          <MessageSquare className="w-4 h-4 text-muted-foreground" />
+                          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Observaciones</p>
+                        </div>
+                        <p className="text-sm text-gray-700 leading-relaxed">{record.observaciones}</p>
+                      </div>
+                    )}
                   </div>
                 </motion.div>
               ))}
